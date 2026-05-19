@@ -1,0 +1,23 @@
+[Unit]
+Description=Local Niri HTTP assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=JARVIS_MODEL=qwen3:4b
+Environment=OLLAMA_URL=http://127.0.0.1:11434
+Environment=JARVIS_GOOSE_BIN=/home/quvy/.local/bin/goose
+Environment=JARVIS_GOOSE_PROVIDER=ollama
+Environment=JARVIS_GOOSE_MODE=auto
+Environment=JARVIS_GOOSE_MAX_TURNS=18
+Environment=JARVIS_HISTORY_ENABLED=true
+Environment=JARVIS_HISTORY_TURNS=10
+Environment=PATH=/home/quvy/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /home/quvy/niri/jarvis_local.py
+Restart=always
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

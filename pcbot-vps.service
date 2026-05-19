@@ -1,0 +1,18 @@
+[Unit]
+Description=VPS Telegram PC wake/control bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PCBOT_VPS_CONFIG=/etc/pcbot-vps/config.env
+ExecStart=/usr/bin/python3 /opt/pcbot-vps/pcbot_vps.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/etc/pcbot-vps
+
+[Install]
+WantedBy=multi-user.target

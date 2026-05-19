@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+import argparse
+import base64
+import json
+import sys
+import urllib.error
+import urllib.request
+
+
+DEFAULT_URL = "http://127.0.0.1:8765"
+
+
+def post(url, payload, timeout=120):
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Local Niri CLI")
+    parser.add_argument("text", nargs="*", help="Запрос к Niri")
+    parser.add_argument("--url", default=DEFAULT_URL)
+    parser.add_argument("--b64", help="UTF-8 base64 encoded request")
+    parser.add_argument("--confirm", help="Подтвердить ожидающее опасное действие")
+    parser.add_argument("--ask", action="store_true", help="Использовать старый одноответный /ask endpoint")
+    parser.add_argument("--steps", action="store_true", help="Показать служебные шаги агента")
+    parser.add_argument("--chat-id", "--session-id", dest="session_id", default="cli", help="ID истории чата")
+    args = parser.parse_args()
+
+    try:
+        if args.confirm:
+            data = post(f"{args.url}/confirm", {"token": args.confirm}, timeout=30)
+        else:
+            text = " ".join(args.text).strip()
+            if args.b64:
+                text = base64.b64decode(args.b64).decode("utf-8")
+            endpoint = "ask" if args.ask else "agent"
+            data = post(f"{args.url}/{endpoint}", {"text": text, "session_id": args.session_id}, timeout=900)
+    except urllib.error.URLError:
+        print("Niri недоступна: локальный сервис не отвечает. Проверь: systemctl status jarvis-local.service")
+        return 2
+    except Exception as exc:
+        print(f"Ошибка Niri: {exc}")
+        return 1
+
+    if not data.get("ok"):
+        print(data.get("error", "Niri вернула ошибку."))
+        if data.get("answer"):
+            print(data["answer"])
+        return 1
+    events = data.get("events") or []
+    if args.steps and events:
+        print("Шаги:")
+        for event in events:
+            print(f"- {event}")
+        print()
+        print("Итог:")
+    print(data.get("answer", ""))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

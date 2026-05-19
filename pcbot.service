@@ -1,0 +1,19 @@
+[Unit]
+Description=Telegram PC control bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PCBOT_CONFIG=/home/quvy/.config/pcbot/config.env
+ExecStart=/usr/bin/python3 /home/quvy/niri/pcbot.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/quvy/.config/pcbot
+
+[Install]
+WantedBy=default.target

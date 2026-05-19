@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Niri
+Comment=Local Niri assistant
+Exec=/usr/local/bin/niri-gui
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;

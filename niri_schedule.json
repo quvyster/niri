@@ -1,0 +1,542 @@
+{
+  "timezone": "Asia/Omsk",
+  "bells_by_day": {
+    "monday": [
+      {
+        "number": 0,
+        "time": "08:00 - 08:40"
+      },
+      {
+        "number": 1,
+        "time": "08:50 - 09:30"
+      },
+      {
+        "number": 2,
+        "time": "09:35 - 10:15"
+      },
+      {
+        "number": 3,
+        "time": "10:30 - 11:10"
+      },
+      {
+        "number": 4,
+        "time": "11:25 - 12:05"
+      },
+      {
+        "number": 5,
+        "time": "12:20 - 13:00"
+      },
+      {
+        "number": 6,
+        "time": "13:15 - 13:55"
+      },
+      {
+        "number": 7,
+        "time": "14:05 - 14:45"
+      },
+      {
+        "number": 8,
+        "time": "14:55 - 15:35"
+      },
+      {
+        "number": 9,
+        "time": "15:50 - 16:30"
+      },
+      {
+        "number": 10,
+        "time": "16:45 - 17:25"
+      },
+      {
+        "number": 11,
+        "time": "17:35 - 18:15"
+      },
+      {
+        "number": 12,
+        "time": "18:20 - 19:00"
+      }
+    ],
+    "tuesday": [
+      {
+        "number": 1,
+        "time": "08:15 - 08:55"
+      },
+      {
+        "number": 2,
+        "time": "09:00 - 09:40"
+      },
+      {
+        "number": 3,
+        "time": "09:55 - 10:35"
+      },
+      {
+        "number": 4,
+        "time": "10:50 - 11:30"
+      },
+      {
+        "number": 5,
+        "time": "11:45 - 12:25"
+      },
+      {
+        "number": 6,
+        "time": "12:40 - 13:20"
+      },
+      {
+        "number": 7,
+        "time": "13:30 - 14:10"
+      },
+      {
+        "number": 8,
+        "time": "14:25 - 15:05"
+      },
+      {
+        "number": 9,
+        "time": "15:20 - 16:00"
+      },
+      {
+        "number": 10,
+        "time": "16:10 - 16:50"
+      },
+      {
+        "number": 11,
+        "time": "17:00 - 17:40"
+      },
+      {
+        "number": 12,
+        "time": "17:45 - 18:25"
+      }
+    ],
+    "wednesday": [
+      {
+        "number": 1,
+        "time": "08:15 - 08:55"
+      },
+      {
+        "number": 2,
+        "time": "09:00 - 09:40"
+      },
+      {
+        "number": 3,
+        "time": "09:55 - 10:35"
+      },
+      {
+        "number": 4,
+        "time": "10:50 - 11:30"
+      },
+      {
+        "number": 5,
+        "time": "11:45 - 12:25"
+      },
+      {
+        "number": 6,
+        "time": "12:40 - 13:20"
+      },
+      {
+        "number": 7,
+        "time": "13:30 - 14:10"
+      },
+      {
+        "number": 8,
+        "time": "14:25 - 15:05"
+      },
+      {
+        "number": 9,
+        "time": "15:20 - 16:00"
+      },
+      {
+        "number": 10,
+        "time": "16:10 - 16:50"
+      },
+      {
+        "number": 11,
+        "time": "17:00 - 17:40"
+      },
+      {
+        "number": 12,
+        "time": "17:45 - 18:25"
+      }
+    ],
+    "thursday": [
+      {
+        "number": 0,
+        "time": "08:00 - 08:40"
+      },
+      {
+        "number": 1,
+        "time": "08:50 - 09:30"
+      },
+      {
+        "number": 2,
+        "time": "09:35 - 10:15"
+      },
+      {
+        "number": 3,
+        "time": "10:30 - 11:10"
+      },
+      {
+        "number": 4,
+        "time": "11:25 - 12:05"
+      },
+      {
+        "number": 5,
+        "time": "12:20 - 13:00"
+      },
+      {
+        "number": 6,
+        "time": "13:15 - 13:55"
+      },
+      {
+        "number": 7,
+        "time": "14:05 - 14:45"
+      },
+      {
+        "number": 8,
+        "time": "14:55 - 15:35"
+      },
+      {
+        "number": 9,
+        "time": "15:50 - 16:30"
+      },
+      {
+        "number": 10,
+        "time": "16:45 - 17:25"
+      },
+      {
+        "number": 11,
+        "time": "17:35 - 18:15"
+      },
+      {
+        "number": 12,
+        "time": "18:20 - 19:00"
+      }
+    ],
+    "friday": [
+      {
+        "number": 1,
+        "time": "08:15 - 08:55"
+      },
+      {
+        "number": 2,
+        "time": "09:00 - 09:40"
+      },
+      {
+        "number": 3,
+        "time": "09:55 - 10:35"
+      },
+      {
+        "number": 4,
+        "time": "10:50 - 11:30"
+      },
+      {
+        "number": 5,
+        "time": "11:45 - 12:25"
+      },
+      {
+        "number": 6,
+        "time": "12:40 - 13:20"
+      },
+      {
+        "number": 7,
+        "time": "13:30 - 14:10"
+      },
+      {
+        "number": 8,
+        "time": "14:25 - 15:05"
+      },
+      {
+        "number": 9,
+        "time": "15:20 - 16:00"
+      },
+      {
+        "number": 10,
+        "time": "16:10 - 16:50"
+      },
+      {
+        "number": 11,
+        "time": "17:00 - 17:40"
+      },
+      {
+        "number": 12,
+        "time": "17:45 - 18:25"
+      }
+    ],
+    "saturday": [
+      {
+        "number": 1,
+        "time": "08:15 - 08:55"
+      },
+      {
+        "number": 2,
+        "time": "09:00 - 09:40"
+      },
+      {
+        "number": 3,
+        "time": "09:50 - 10:30"
+      },
+      {
+        "number": 4,
+        "time": "10:40 - 11:20"
+      },
+      {
+        "number": 5,
+        "time": "11:30 - 12:10"
+      },
+      {
+        "number": 6,
+        "time": "12:15 - 12:55"
+      }
+    ],
+    "sunday": []
+  },
+  "days": {
+    "monday": [
+      {
+        "number": 0,
+        "subject": "Урок",
+        "time": "08:00 - 08:40",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 1,
+        "subject": "Урок",
+        "time": "08:50 - 09:30",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 2,
+        "subject": "Урок",
+        "time": "09:35 - 10:15",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 3,
+        "subject": "Урок",
+        "time": "10:30 - 11:10",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 4,
+        "subject": "Урок",
+        "time": "11:25 - 12:05",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 5,
+        "subject": "Урок",
+        "time": "12:20 - 13:00",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 6,
+        "subject": "Урок",
+        "time": "13:15 - 13:55",
+        "room": "",
+        "teacher": ""
+      }
+    ],
+    "tuesday": [
+      {
+        "number": 2,
+        "subject": "Урок",
+        "time": "09:00 - 09:40",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 3,
+        "subject": "Урок",
+        "time": "09:55 - 10:35",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 4,
+        "subject": "Урок",
+        "time": "10:50 - 11:30",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 5,
+        "subject": "Урок",
+        "time": "11:45 - 12:25",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 6,
+        "subject": "Урок",
+        "time": "12:40 - 13:20",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 7,
+        "subject": "Урок",
+        "time": "13:30 - 14:10",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 8,
+        "subject": "Урок",
+        "time": "14:25 - 15:05",
+        "room": "",
+        "teacher": ""
+      }
+    ],
+    "wednesday": [
+      {
+        "number": 1,
+        "subject": "Урок",
+        "time": "08:15 - 08:55",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 2,
+        "subject": "Урок",
+        "time": "09:00 - 09:40",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 3,
+        "subject": "Урок",
+        "time": "09:55 - 10:35",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 4,
+        "subject": "Урок",
+        "time": "10:50 - 11:30",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 5,
+        "subject": "Урок",
+        "time": "11:45 - 12:25",
+        "room": "",
+        "teacher": ""
+      }
+    ],
+    "thursday": [
+      {
+        "number": 0,
+        "subject": "Урок",
+        "time": "08:00 - 08:40",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 1,
+        "subject": "Урок",
+        "time": "08:50 - 09:30",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 2,
+        "subject": "Урок",
+        "time": "09:35 - 10:15",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 3,
+        "subject": "Урок",
+        "time": "10:30 - 11:10",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 4,
+        "subject": "Урок",
+        "time": "11:25 - 12:05",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 5,
+        "subject": "Урок",
+        "time": "12:20 - 13:00",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 6,
+        "subject": "Урок",
+        "time": "13:15 - 13:55",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 7,
+        "subject": "Урок",
+        "time": "14:05 - 14:45",
+        "room": "",
+        "teacher": ""
+      }
+    ],
+    "friday": [
+      {
+        "number": 1,
+        "subject": "Урок",
+        "time": "08:15 - 08:55",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 2,
+        "subject": "Урок",
+        "time": "09:00 - 09:40",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 3,
+        "subject": "Урок",
+        "time": "09:55 - 10:35",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 4,
+        "subject": "Урок",
+        "time": "10:50 - 11:30",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 5,
+        "subject": "Урок",
+        "time": "11:45 - 12:25",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 6,
+        "subject": "Урок",
+        "time": "12:40 - 13:20",
+        "room": "",
+        "teacher": ""
+      },
+      {
+        "number": 7,
+        "subject": "Урок",
+        "time": "13:30 - 14:10",
+        "room": "",
+        "teacher": ""
+      }
+    ],
+    "saturday": [],
+    "sunday": []
+  }
+}

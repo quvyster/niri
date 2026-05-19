@@ -1,0 +1,25 @@
+[Unit]
+Description=Always-on Niri voice listener
+After=pipewire.service pipewire-pulse.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/quvy
+Environment=HOME=/home/quvy
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+Environment=NIRI_VOICE_MODEL=/home/quvy/.local/share/jarvis/models/vosk-model-ru-0.42
+Environment=JARVIS_VOICE_MODEL=/home/quvy/.local/share/jarvis/models/vosk-model-ru-0.42
+Environment=JARVIS_VOICE_SOURCE=effect_output.rnnoise
+Environment=JARVIS_VOICE_SESSION_ID=voice
+Environment=JARVIS_VOICE_TTS=piper
+Environment=JARVIS_VOICE_TTS_VOICE=Anna
+Environment=NIRI_PIPER_BIN=/home/quvy/.local/share/niri/piper/venv/bin/piper
+Environment=NIRI_PIPER_MODEL=/home/quvy/.local/share/niri/piper/voices/ru_RU-irina-medium.onnx
+Environment=NIRI_PIPER_VOLUME=0.45
+ExecStart=/usr/bin/python3 /home/quvy/niri/jarvis_voice.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+iface="${1:-${NIRI_WOL_IFACE:-enp5s0}}"
+
+if command -v nmcli >/dev/null 2>&1; then
+  conn="$(nmcli -g GENERAL.CONNECTION device show "$iface" 2>/dev/null | head -n1 || true)"
+  if [[ -n "$conn" && "$conn" != "--" ]]; then
+    nmcli connection modify "$conn" 802-3-ethernet.wake-on-lan magic >/dev/null 2>&1 || true
+  fi
+fi
+
+if [[ -w "/sys/class/net/$iface/device/power/wakeup" ]]; then
+  echo enabled >"/sys/class/net/$iface/device/power/wakeup" || true
+fi
+
+enable_acpi_wakeup() {
+  local name="$1"
+  [[ -w /proc/acpi/wakeup ]] || return 0
+  if awk -v dev="$name" '$1 == dev && $3 ~ /disabled/ {found=1} END {exit found ? 0 : 1}' /proc/acpi/wakeup; then
+    echo "$name" >/proc/acpi/wakeup || true
+  fi
+}
+
+enable_acpi_wakeup GLAN
+enable_acpi_wakeup RP04
+
+if command -v ethtool >/dev/null 2>&1; then
+  ethtool -s "$iface" wol g >/dev/null 2>&1 || true
+fi
+
+echo "WoL setup applied for $iface"

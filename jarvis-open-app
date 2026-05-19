@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+
+
+APP_DIRS = [
+    "/home/quvy/.local/share/applications",
+    "/usr/local/share/applications",
+    "/usr/share/applications",
+]
+
+ALIASES = [
+    (("subnautica", "сабнатик", "сабнатику", "сабнатика", "сабнаутика", "сабнаутику"), "Subnautica 2"),
+    (("counter strike", "counter-strike", "cs2", "кс", "контра", "каэс"), "Counter-Strike 2"),
+    (("ddnet", "дднет"), "DDNet"),
+    (("geoguessr", "геогессер", "геогесер"), "GeoGuessr Steam Edition"),
+    (("minecraft", "майнкрафт", "prism"), "Prism Launcher"),
+    (("steam", "стим"), "Steam"),
+    (("файлы", "проводник", "nautilus"), "Files"),
+    (("настройки", "settings"), "Settings"),
+    (("монитор", "диспетчер", "system monitor"), "System Monitor"),
+    (("калькулятор", "кальк", "calculator", "calc"), "Calculator"),
+    (("текстов", "редактор", "gedit", "блокнот"), "Text Editor"),
+    (("терминал", "console", "консоль", "kitty"), "Console"),
+    (("chrome", "хром", "браузер", "google"), "Google Chrome"),
+    (("web", "epiphany", "эпифани"), "Web"),
+    (("telegram", "телеграм"), "Telegram Desktop"),
+    (("discord", "дискорд"), "Discord"),
+    (("vlc", "влц"), "VLC media player"),
+    (("mpv",), "mpv Media Player"),
+    (("celluloid", "целлулоид"), "Celluloid"),
+    (("qbittorrent", "торрент", "кьюбит"), "qBittorrent"),
+    (("karing", "каринг", "vpn", "впн"), "Karing"),
+    (("nvidia", "энвидиа"), "NVIDIA X Server Settings"),
+    (("gpu recorder", "запись экрана", "рекордер"), "GPU Screen Recorder"),
+    (("vscode", "vs code", "код", "visual studio"), "Visual Studio Code"),
+    (("niri", "нири", "jarvis", "джарвис"), "Niri"),
+]
+
+
+def normalize(text):
+    return re.sub(r"[^a-zа-яё0-9]+", " ", text.lower()).strip()
+
+
+def graphical_env():
+    env = os.environ.copy()
+    env.setdefault("HOME", "/home/quvy")
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/1000")
+    env.setdefault("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus")
+    env.setdefault("DISPLAY", ":0")
+    env.setdefault("WAYLAND_DISPLAY", "wayland-0")
+    if not env.get("XAUTHORITY"):
+        runtime = env.get("XDG_RUNTIME_DIR", "/run/user/1000")
+        try:
+            candidates = [
+                os.path.join(runtime, name)
+                for name in os.listdir(runtime)
+                if name.startswith(".mutter-Xwaylandauth.")
+            ]
+            if candidates:
+                env["XAUTHORITY"] = max(candidates, key=os.path.getmtime)
+        except OSError:
+            pass
+    return env
+
+
+def clean_exec(value):
+    value = re.sub(r"\s+%[fFuUdDnNickvm]", "", value)
+    value = value.replace("%%", "%").strip()
+    return value
+
+
+def desktop_apps():
+    apps = []
+    seen = set()
+    for directory in APP_DIRS:
+        if not os.path.isdir(directory):
+            continue
+        for root, _, files in os.walk(directory):
+            for name in files:
+                if not name.endswith(".desktop"):
+                    continue
+                path = os.path.join(root, name)
+                values = {}
+                in_entry = False
+                try:
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        for raw in f:
+                            line = raw.strip()
+                            if line == "[Desktop Entry]":
+                                in_entry = True
+                                continue
+                            if line.startswith("[") and line.endswith("]"):
+                                in_entry = False
+                            if not in_entry or "=" not in line:
+                                continue
+                            key, value = line.split("=", 1)
+                            if key in {"Name", "GenericName", "Comment", "Exec", "NoDisplay", "Hidden", "Terminal", "Type"}:
+                                values[key] = value
+                except OSError:
+                    continue
+                if values.get("Type", "Application") != "Application":
+                    continue
+                if values.get("Hidden", "").lower() == "true" or values.get("NoDisplay", "").lower() == "true":
+                    continue
+                app_name = values.get("Name", "").strip()
+                exec_value = clean_exec(values.get("Exec", ""))
+                if not app_name or not exec_value:
+                    continue
+                key = (app_name.lower(), exec_value)
+                if key in seen:
+                    continue
+                seen.add(key)
+                apps.append({
+                    "name": app_name,
+                    "generic": values.get("GenericName", ""),
+                    "comment": values.get("Comment", ""),
+                    "exec": exec_value,
+                    "desktop_id": name,
+                })
+    return apps
+
+
+def alias_query(query):
+    low = query.lower()
+    for words, app_name in ALIASES:
+        if any(word in low for word in words):
+            return app_name
+    return query
+
+
+def app_score(app, query):
+    q = normalize(query)
+    hay = normalize(" ".join([app["name"], app["generic"], app["comment"], app["exec"], app["desktop_id"]]))
+    if not q:
+        return 0
+    if q == normalize(app["name"]):
+        return 100
+    if q in hay:
+        return 90
+    q_tokens = set(q.split())
+    hay_tokens = set(hay.split())
+    return int(70 * len(q_tokens & hay_tokens) / len(q_tokens)) if q_tokens else 0
+
+
+def launch_app(launcher, env, app_name):
+    systemd_run = "/usr/bin/systemd-run"
+    if os.path.exists(systemd_run):
+        unit = f"niri-app-{os.getpid()}-{int(time.time())}"
+        cmd = [
+            systemd_run,
+            "--user",
+            "--collect",
+            "--no-block",
+            "--quiet",
+            "--unit",
+            unit,
+            "--description",
+            f"Niri app: {app_name}",
+            "--working-directory",
+            env.get("HOME", "/home/quvy"),
+        ]
+        for key in ("HOME", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "LANG"):
+            value = env.get(key)
+            if value:
+                cmd.extend(["--setenv", f"{key}={value}"])
+        cmd.extend(launcher)
+        proc = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return
+    subprocess.Popen(
+        launcher,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def main():
+    query = " ".join(sys.argv[1:]).strip()
+    if not query:
+        print("Укажи приложение: niri-open-app Steam", file=sys.stderr)
+        return 2
+    query = alias_query(query)
+    apps = desktop_apps()
+    scored = sorted(((app_score(app, query), app) for app in apps), key=lambda item: item[0], reverse=True)
+    if not scored or scored[0][0] < 35:
+        print(f"Не нашел приложение по запросу: {query}")
+        return 1
+
+    app = scored[0][1]
+    gtk_launch = "/usr/bin/gtk-launch"
+    launcher = [gtk_launch, app["desktop_id"]] if os.path.exists(gtk_launch) else shlex.split(app["exec"])
+    try:
+        launch_app(launcher, graphical_env(), app["name"])
+    except Exception as exc:
+        print(f"Не смог открыть {app['name']}: {exc}")
+        return 1
+    print(f"Открываю: {app['name']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

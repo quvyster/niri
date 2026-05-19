@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+mode="day"
+day="today"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --bells) mode="bells"; shift ;;
+    --day) day="${2:-today}"; shift 2 ;;
+    --mode) mode="${2:-day}"; shift 2 ;;
+    *) day="$1"; shift ;;
+  esac
+done
+exec /usr/bin/python3 /home/quvy/niri/niri_schedule_window.py --mode "$mode" --day "$day"

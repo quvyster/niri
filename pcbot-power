@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  suspend)
+    /usr/local/bin/niri-wol-setup enp5s0 >/dev/null 2>&1 || true
+    systemctl suspend
+    ;;
+  poweroff)
+    systemctl poweroff
+    ;;
+  reboot)
+    systemctl reboot
+    ;;
+  lock)
+    loginctl lock-sessions
+    ;;
+  *)
+    echo "usage: pcbot-power suspend|poweroff|reboot|lock" >&2
+    exit 64
+    ;;
+esac

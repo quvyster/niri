@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="${1:-/dev/ttyUSB0}"
+FIRMWARE="${ESP32_MICROPYTHON_FIRMWARE:-/tmp/ESP32_GENERIC-20241129-v1.24.1.bin}"
+FIRMWARE_URL="${ESP32_MICROPYTHON_FIRMWARE_URL:-https://micropython.org/resources/firmware/ESP32_GENERIC-20241129-v1.24.1.bin}"
+VENV="$(dirname "$0")/.venv-esp32"
+
+if [[ ! -x "$VENV/bin/esptool.py" && ! -x "$VENV/bin/esptool" ]]; then
+  echo "No esptool in $VENV. Run: python -m venv .venv-esp32 && .venv-esp32/bin/pip install esptool mpremote" >&2
+  exit 1
+fi
+
+if [[ ! -f esp32_wol_config.py ]]; then
+  echo "Missing esp32_wol_config.py. Copy esp32_wol_config.example.py and fill Wi-Fi/server settings." >&2
+  exit 1
+fi
+
+if [[ ! -f "$FIRMWARE" ]]; then
+  curl -L --fail -o "$FIRMWARE" "$FIRMWARE_URL"
+fi
+
+"$VENV/bin/esptool.py" --chip esp32 --port "$PORT" erase_flash
+"$VENV/bin/esptool.py" --chip esp32 --port "$PORT" --baud 460800 write_flash -z 0x1000 "$FIRMWARE"
+sleep 2
+"$VENV/bin/mpremote" connect "$PORT" fs cp esp32_wol_config.py :esp32_wol_config.py
+"$VENV/bin/mpremote" connect "$PORT" fs cp esp32_wol_main.py :main.py
+"$VENV/bin/mpremote" connect "$PORT" reset
+echo "ESP32 Niri WoL bridge flashed on $PORT"

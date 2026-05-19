@@ -1,0 +1,10 @@
+[Unit]
+Description=Enable Wake-on-LAN for Niri Telegram wake
+After=NetworkManager.service network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/niri-wol-setup enp5s0
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+[Unit]
+Description=Local Niri HTTP assistant
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quvy
+Group=quvy
+SupplementaryGroups=wheel
+WorkingDirectory=/home/quvy
+Environment=HOME=/home/quvy
+Environment=JARVIS_MODEL=qwen3:4b
+Environment=OLLAMA_URL=http://127.0.0.1:11434
+Environment=JARVIS_GOOSE_BIN=/home/quvy/.local/bin/goose
+Environment=JARVIS_GOOSE_PROVIDER=ollama
+Environment=JARVIS_GOOSE_MODE=auto
+Environment=JARVIS_GOOSE_MAX_TURNS=18
+Environment=JARVIS_HISTORY_ENABLED=true
+Environment=JARVIS_HISTORY_TURNS=10
+Environment=PATH=/home/quvy/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
+ExecStart=/usr/bin/python3 /home/quvy/niri/jarvis_local.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${SSH_ORIGINAL_COMMAND:-}"
+
+case "$cmd" in
+  status)
+    hostnamectl --static
+    uptime -p
+    ip -br addr show enp5s0 2>/dev/null || true
+    sensors 2>/dev/null | sed -n '1,40p' || true
+    nvidia-smi --query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total,pstate --format=csv,noheader 2>/dev/null || true
+    ;;
+  suspend)
+    sudo -n /usr/local/bin/pcbot-power suspend
+    ;;
+  poweroff)
+    sudo -n /usr/local/bin/pcbot-power poweroff
+    ;;
+  reboot)
+    sudo -n /usr/local/bin/pcbot-power reboot
+    ;;
+  lock)
+    sudo -n /usr/local/bin/pcbot-power lock
+    ;;
+  ping)
+    echo "pong"
+    ;;
+  jarvis-status)
+    systemctl is-active jarvis-local.service
+    systemctl is-active ollama.service
+    curl -s --max-time 5 http://127.0.0.1:8765/health || true
+    echo
+    ollama ps || true
+    ;;
+  jarvis-ssh-b64\ *)
+    rest="${cmd#jarvis-ssh-b64 }"
+    payload="${rest%% *}"
+    chat_id="${rest#"$payload"}"
+    chat_id="${chat_id# }"
+    if [[ -n "$chat_id" && "$chat_id" != "$rest" ]]; then
+      /usr/local/bin/jarvis --b64 "$payload" --chat-id "$chat_id"
+    else
+      /usr/local/bin/jarvis --b64 "$payload"
+    fi
+    ;;
+  jarvis-confirm\ *)
+    token="${cmd#jarvis-confirm }"
+    /usr/local/bin/jarvis --confirm "$token"
+    ;;
+  *)
+    echo "allowed commands: status, suspend, poweroff, reboot, lock, ping, jarvis-status, jarvis-ssh-b64, jarvis-confirm" >&2
+    exit 64
+    ;;
+esac

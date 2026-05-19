@@ -1,0 +1,13 @@
+.venv*/
+__pycache__/
+*.py[cod]
+
+# Local secrets and machine-specific config.
+config.env
+*.env
+esp32_wol_config.py
+
+# Local runtime state.
+*.log
+*.tmp
+.DS_Store
