@@ -37,7 +37,12 @@ HISTORY_DIR = os.environ.get("JARVIS_HISTORY_DIR", "/home/quvy/.local/share/jarv
 HISTORY_TURNS = int(os.environ.get("JARVIS_HISTORY_TURNS", "10"))
 HISTORY_ENABLED = os.environ.get("JARVIS_HISTORY_ENABLED", "true").lower() == "true"
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-SCHEDULE_PATH = os.environ.get("NIRI_SCHEDULE_PATH", os.path.join(PROJECT_DIR, "niri_schedule.json"))
+LOCAL_SCHEDULE_PATH = os.path.join(PROJECT_DIR, "niri_schedule.local.json")
+DEFAULT_SCHEDULE_PATH = os.path.join(PROJECT_DIR, "niri_schedule.json")
+SCHEDULE_PATH = os.environ.get(
+    "NIRI_SCHEDULE_PATH",
+    LOCAL_SCHEDULE_PATH if os.path.exists(LOCAL_SCHEDULE_PATH) else DEFAULT_SCHEDULE_PATH,
+)
 SCHEDULE_WINDOW = os.environ.get("NIRI_SCHEDULE_WINDOW", os.path.join(PROJECT_DIR, "niri_schedule_window.py"))
 
 pending = {}

@@ -12,7 +12,12 @@ from gi.repository import Adw, Gio, Gtk
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SCHEDULE_PATH = os.environ.get("NIRI_SCHEDULE_PATH", os.path.join(ROOT, "niri_schedule.json"))
+LOCAL_SCHEDULE_PATH = os.path.join(ROOT, "niri_schedule.local.json")
+DEFAULT_SCHEDULE_PATH = os.path.join(ROOT, "niri_schedule.json")
+SCHEDULE_PATH = os.environ.get(
+    "NIRI_SCHEDULE_PATH",
+    LOCAL_SCHEDULE_PATH if os.path.exists(LOCAL_SCHEDULE_PATH) else DEFAULT_SCHEDULE_PATH,
+)
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 DAY_NAMES = {
     "monday": "Понедельник",

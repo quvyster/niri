@@ -6,6 +6,7 @@ __pycache__/
 config.env
 *.env
 esp32_wol_config.py
+niri_schedule.local.json
 
 # Local runtime state.
 *.log
