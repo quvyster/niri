@@ -1,6 +1,7 @@
 import socket
 import time
 
+from machine import Pin
 import network
 import urequests
 
@@ -49,6 +50,23 @@ def send_wol():
     log("wol sent to %s via %s" % (config.PC_MAC, config.BROADCAST_IP))
 
 
+def pulse_power_switch():
+    pin_number = getattr(config, "POWER_SWITCH_PIN", None)
+    if pin_number is None:
+        return False
+    active_high = getattr(config, "POWER_SWITCH_ACTIVE_HIGH", True)
+    pulse_ms = getattr(config, "POWER_SWITCH_PULSE_MS", 700)
+    active = 1 if active_high else 0
+    inactive = 0 if active_high else 1
+    pin = Pin(pin_number, Pin.OUT, value=inactive)
+    time.sleep_ms(50)
+    pin.value(active)
+    time.sleep_ms(pulse_ms)
+    pin.value(inactive)
+    log("power switch pulsed on GPIO%s for %sms" % (pin_number, pulse_ms))
+    return True
+
+
 def poll_server():
     response = urequests.get(config.SERVER_URL)
     try:
@@ -71,6 +89,7 @@ def main():
                 last_response = response
             if response.startswith("WAKE"):
                 send_wol()
+                pulse_power_switch()
                 time.sleep(10)
         except Exception as exc:
             log("error: %s" % exc)
