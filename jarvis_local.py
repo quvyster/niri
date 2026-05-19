@@ -814,7 +814,9 @@ def confirm(token):
 
 def health():
     goose_code, goose_out = run([GOOSE_BIN, "--version"], timeout=5)
-    ollama_code, ollama_out = run(["ollama", "ps"], timeout=8)
+    ollama_env = os.environ.copy()
+    ollama_env.setdefault("HOME", "/home/quvy")
+    ollama_code, ollama_out = run(["ollama", "ps"], timeout=8, env=ollama_env)
     return {
         "ok": True,
         "agent": "goose",
