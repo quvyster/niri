@@ -1,0 +1,418 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+from datetime import datetime
+from pathlib import Path
+
+
+PROJECT_DIR = Path("/home/quvy/niri")
+CONFIG_PATHS = [
+    Path("/etc/niri-health-report/config.env"),
+    PROJECT_DIR / "config.env",
+]
+MAX_TELEGRAM = 3900
+
+
+def load_env():
+    data = {}
+    for path in CONFIG_PATHS:
+        if not path.exists():
+            continue
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            data[key.strip()] = value.strip().strip("\"'")
+    return data
+
+
+def run(args, timeout=20, user=False):
+    cmd = list(args)
+    if user:
+        cmd = ["runuser", "-u", "quvy", "--"] + cmd
+    try:
+        proc = subprocess.run(
+            cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+            env={**os.environ, "HOME": "/home/quvy", "XDG_RUNTIME_DIR": "/run/user/1000"},
+        )
+        return proc.returncode, proc.stdout.strip()
+    except FileNotFoundError:
+        return 127, f"not found: {args[0]}"
+    except subprocess.TimeoutExpired:
+        return 124, "timeout"
+
+
+def short(text, limit=900):
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "\n...[cut]"
+
+
+def add_issue(issues, title, detail=""):
+    issues.append((title, detail.strip()))
+
+
+def add_info(infos, title, detail=""):
+    infos.append((title, detail.strip()))
+
+
+def service_state(name, user=False):
+    code, out = run(["systemctl", "--user" if user else "is-active", name], timeout=8) if False else (1, "")
+    if user:
+        code, out = run(["systemctl", "--user", "is-active", name], timeout=8, user=True)
+    else:
+        code, out = run(["systemctl", "is-active", name], timeout=8)
+    return code == 0 and out.strip() == "active", out.strip()
+
+
+def check_failed_units(issues, infos):
+    code, out = run(["systemctl", "list-units", "--failed", "--no-legend", "--no-pager"], timeout=10)
+    failed = [line for line in out.splitlines() if line.strip()]
+    if failed:
+        add_issue(issues, "Есть failed systemd units", short("\n".join(failed), 1200))
+    else:
+        add_info(infos, "systemd system units", "failed units нет")
+
+    code, out = run(["systemctl", "--user", "list-units", "--failed", "--no-legend", "--no-pager"], timeout=10, user=True)
+    failed = [line for line in out.splitlines() if line.strip()]
+    if failed:
+        add_issue(issues, "Есть failed user units", short("\n".join(failed), 1200))
+    else:
+        add_info(infos, "systemd user units", "failed units нет")
+
+
+def check_services(issues, infos):
+    system_services = [
+        "jarvis-local.service",
+        "ollama.service",
+        "sshd.service",
+        "NetworkManager.service",
+        "niri-wol.service",
+    ]
+    for name in system_services:
+        active, state = service_state(name)
+        if name == "niri-wol.service":
+            code, enabled = run(["systemctl", "is-enabled", name], timeout=8)
+            if code != 0:
+                add_issue(issues, f"{name} не enabled", enabled)
+            else:
+                add_info(infos, name, f"enabled, state={state or 'inactive oneshot'}")
+            continue
+        if not active:
+            add_issue(issues, f"{name} не active", state)
+        else:
+            add_info(infos, name, "active")
+
+    active, state = service_state("pcbot-reverse-ssh.service", user=True)
+    if not active:
+        add_issue(issues, "pcbot-reverse-ssh.service не active", state)
+    else:
+        add_info(infos, "pcbot-reverse-ssh.service", "active")
+
+
+def check_network_and_wol(issues, infos):
+    code, out = run(["ip", "-br", "addr", "show", "enp5s0"], timeout=8)
+    if code != 0 or "UP" not in out:
+        add_issue(issues, "enp5s0 не выглядит активным", out)
+    else:
+        add_info(infos, "network", out)
+
+    code, out = run(["ethtool", "enp5s0"], timeout=10)
+    if code != 0:
+        add_issue(issues, "ethtool enp5s0 ошибка", out)
+    else:
+        wake = "\n".join(line.strip() for line in out.splitlines() if "Wake-on" in line or "Link detected" in line)
+        if "Wake-on: g" not in out:
+            add_issue(issues, "WoL не включён на enp5s0", wake)
+        else:
+            add_info(infos, "WoL", wake)
+
+    code, out = run(["modinfo", "alx"], timeout=8)
+    if "version:        wol-dkms" not in out:
+        add_issue(issues, "alx-wol-dkms не активен", short(out, 700))
+    else:
+        add_info(infos, "alx driver", "wol-dkms active")
+
+    code, out = run(["dkms", "status", "alx-wol"], timeout=12)
+    if code != 0 or "installed" not in out:
+        add_issue(issues, "DKMS alx-wol проблема", out)
+    else:
+        add_info(infos, "DKMS", out)
+
+
+def check_local_api(issues, infos):
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8765/health", timeout=8) as resp:
+            body = resp.read().decode("utf-8", "replace")
+        if '"ok": true' in body or '"ok":true' in body:
+            add_info(infos, "Niri local API", "health ok")
+        else:
+            add_issue(issues, "Niri local API странный ответ", short(body, 1000))
+    except Exception as exc:
+        add_issue(issues, "Niri local API недоступен", str(exc))
+
+
+def check_disks(issues, infos):
+    code, out = run(["df", "-h", "-x", "tmpfs", "-x", "devtmpfs"], timeout=10)
+    add_info(infos, "disk usage", short(out, 900))
+    for line in out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 5:
+            if parts[-1].startswith("/run/media/"):
+                continue
+            use = parts[4].rstrip("%")
+            try:
+                if int(use) >= 90:
+                    add_issue(issues, f"Раздел почти заполнен: {parts[-1]}", line)
+            except ValueError:
+                pass
+
+    code, out = run(["lsblk", "-ndo", "NAME,TYPE"], timeout=8)
+    disks = [
+        line.split()[0]
+        for line in out.splitlines()
+        if len(line.split()) >= 2 and line.split()[1] == "disk" and not line.split()[0].startswith("zram")
+    ]
+    smart_lines = []
+    for disk in disks:
+        dev = f"/dev/{disk}"
+        code, out = run(["smartctl", "-H", dev], timeout=15)
+        if code != 0 and ("SMART support is: Disabled" in out or "SMART Disabled" in out):
+            run(["smartctl", "-s", "on", dev], timeout=15)
+            code, out = run(["smartctl", "-H", dev], timeout=15)
+        line = f"{dev}: " + ("OK" if "PASSED" in out else "CHECK")
+        smart_lines.append(line)
+        if "PASSED" not in out and "Unavailable" not in out and "Unknown USB bridge" not in out:
+            add_issue(issues, f"SMART health не PASSED: {dev}", short(out, 900))
+    if smart_lines:
+        add_info(infos, "SMART", "\n".join(smart_lines))
+
+
+def check_journal(issues, infos):
+    patterns = [
+        "I/O error",
+        "Buffer I/O",
+        "EXT4-fs error",
+        "segfault",
+        "BUG:",
+        "kernel panic",
+        "oom-killer",
+        "Call Trace",
+        "failed",
+        "error",
+    ]
+    code, out = run(["journalctl", "-p", "err..alert", "--since", "24 hours ago", "--no-pager"], timeout=20)
+    lines = [line for line in out.splitlines() if line.strip() and not line.startswith("-- No entries --")]
+    filtered = []
+    for line in lines:
+        low = line.lower()
+        if any(x.lower() in low for x in patterns):
+            filtered.append(line)
+    if filtered:
+        add_issue(issues, "Ошибки journal за 24 часа", short("\n".join(filtered[-20:]), 1800))
+    else:
+        add_info(infos, "journal", "err..alert за 24 часа без явных проблем")
+
+
+def check_configs(issues, infos):
+    paths = [
+        PROJECT_DIR / "remote-control-wrapper",
+        Path("/usr/local/bin/jarvis"),
+        Path("/usr/local/bin/niri"),
+        Path("/usr/local/bin/niri-open-app"),
+        Path("/usr/local/bin/niri-calc"),
+        PROJECT_DIR / "niri_schedule.local.json",
+        Path("/etc/systemd/system/jarvis-local.service"),
+        Path("/home/quvy/.config/systemd/user/pcbot-reverse-ssh.service"),
+        Path("/home/quvy/.ssh/authorized_keys"),
+    ]
+    missing = [str(p) for p in paths if not p.exists()]
+    if missing:
+        add_issue(issues, "Нет важных файлов", "\n".join(missing))
+    else:
+        add_info(infos, "important files", "на месте")
+
+    old_refs = []
+    for p in [Path("/home/quvy/.ssh/authorized_keys"), Path("/home/quvy/.config/systemd/user/pcbot-reverse-ssh.service")]:
+        if p.exists() and "/home/quvy/pc-telegram-bot" in p.read_text(encoding="utf-8", errors="ignore"):
+            old_refs.append(str(p))
+    if old_refs:
+        add_issue(issues, "Остались старые пути pc-telegram-bot", "\n".join(old_refs))
+
+    secret_files = [
+        PROJECT_DIR / "esp32_wol_config.py",
+        PROJECT_DIR / "niri_schedule.local.json",
+        Path("/etc/niri-health-report/config.env"),
+    ]
+    bad_modes = []
+    for p in secret_files:
+        if p.exists():
+            mode = p.stat().st_mode & 0o777
+            if mode & 0o077:
+                bad_modes.append(f"{p}: {oct(mode)}")
+    if bad_modes:
+        add_issue(issues, "Слишком открытые права на приватные файлы", "\n".join(bad_modes))
+    else:
+        add_info(infos, "private file modes", "ok")
+
+
+def check_packages_gpu_temps(issues, infos):
+    code, out = run(["pacman", "-Qu"], timeout=20)
+    updates = [line for line in out.splitlines() if line.strip()]
+    if updates:
+        add_info(infos, "pacman updates", f"{len(updates)} pending\n" + short("\n".join(updates[:20]), 1200))
+    else:
+        add_info(infos, "pacman updates", "нет")
+
+    if shutil.which("nvidia-smi"):
+        code, out = run([
+            "nvidia-smi",
+            "--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,pstate",
+            "--format=csv,noheader",
+        ], timeout=10)
+        if code == 0:
+            add_info(infos, "GPU", out)
+        else:
+            add_issue(issues, "nvidia-smi ошибка", out)
+
+    if shutil.which("sensors"):
+        code, out = run(["sensors"], timeout=10)
+        hot = []
+        for line in out.splitlines():
+            m = re.search(r"([+-]\d+(?:\.\d+)?)°C", line)
+            if m:
+                try:
+                    if float(m.group(1).replace("+", "")) >= 85:
+                        hot.append(line.strip())
+                except ValueError:
+                    pass
+        if hot:
+            add_issue(issues, "Высокие температуры", "\n".join(hot))
+        else:
+            add_info(infos, "temperatures", "критичных не найдено")
+
+
+def check_vps(issues, infos):
+    cmd = [
+        "ssh",
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=8",
+        "-o", "StrictHostKeyChecking=no",
+        "-i", "/home/quvy/.ssh/pcbot_vps_ed25519",
+        "root@185.252.146.123",
+        "systemctl is-active pcbot-vps.service; ss -ltn | grep -E '127.0.0.1:2222|0.0.0.0:8787' || true",
+    ]
+    code, out = run(cmd, timeout=15)
+    if code != 0:
+        add_issue(issues, "VPS проверка не прошла", out)
+    else:
+        if "active" not in out or "127.0.0.1:2222" not in out or "0.0.0.0:8787" not in out:
+            add_issue(issues, "VPS сервисы/порты выглядят неправильно", out)
+        else:
+            add_info(infos, "VPS", "pcbot active, reverse SSH и ESP wake порты слушают")
+
+
+def build_report():
+    issues = []
+    infos = []
+    started = time.time()
+    for check in [
+        check_failed_units,
+        check_services,
+        check_network_and_wol,
+        check_local_api,
+        check_disks,
+        check_journal,
+        check_configs,
+        check_packages_gpu_temps,
+        check_vps,
+    ]:
+        try:
+            check(issues, infos)
+        except Exception as exc:
+            add_issue(issues, f"Ошибка проверки {check.__name__}", repr(exc))
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    host = socket.gethostname()
+    status = "OK" if not issues else f"Проблем: {len(issues)}"
+    lines = [
+        f"Niri daily system report",
+        f"{host} · {now}",
+        f"Статус: {status}",
+        "",
+    ]
+    if issues:
+        lines.append("Проблемы:")
+        for i, (title, detail) in enumerate(issues, 1):
+            lines.append(f"{i}. {title}")
+            if detail:
+                lines.append(short(detail, 1000))
+        lines.append("")
+    lines.append("Проверки:")
+    for title, detail in infos:
+        if detail:
+            lines.append(f"- {title}: {detail}")
+        else:
+            lines.append(f"- {title}")
+    lines.append("")
+    lines.append(f"Время проверки: {time.time() - started:.1f}s")
+    return "\n".join(lines)
+
+
+def split_messages(text):
+    chunks = []
+    while len(text) > MAX_TELEGRAM:
+        cut = text.rfind("\n", 0, MAX_TELEGRAM)
+        if cut < 1000:
+            cut = MAX_TELEGRAM
+        chunks.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    if text:
+        chunks.append(text)
+    return chunks
+
+
+def send_telegram(config, text):
+    token = config.get("BOT_TOKEN", "").strip()
+    chat_ids = config.get("REPORT_CHAT_IDS") or config.get("ALLOWED_USER_IDS", "")
+    targets = [x.strip() for x in chat_ids.replace(" ", "").split(",") if x.strip()]
+    if not token or not targets:
+        raise SystemExit("BOT_TOKEN/REPORT_CHAT_IDS не настроены")
+    proxy = config.get("HTTPS_PROXY") or config.get("https_proxy")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": proxy})) if proxy else urllib.request.build_opener()
+    for chat_id in targets:
+        for chunk in split_messages(text):
+            data = urllib.parse.urlencode({"chat_id": chat_id, "text": chunk}).encode()
+            req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+            with opener.open(req, timeout=25) as resp:
+                resp.read()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--print", action="store_true", dest="print_only")
+    parser.add_argument("--send", action="store_true")
+    args = parser.parse_args()
+    report = build_report()
+    if args.print_only or not args.send:
+        print(report)
+    if args.send:
+        send_telegram(load_env(), report)
+
+
+if __name__ == "__main__":
+    main()
