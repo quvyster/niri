@@ -218,8 +218,15 @@ def check_journal(issues, infos):
     code, out = run(["journalctl", "-p", "err..alert", "--since", "24 hours ago", "--no-pager"], timeout=20)
     lines = [line for line in out.splitlines() if line.strip() and not line.startswith("-- No entries --")]
     filtered = []
+    ignore = [
+        "steam",
+        "pressure-vessel-wrap",
+        "_srt_architecture_read_elf",
+    ]
     for line in lines:
         low = line.lower()
+        if any(x in low for x in ignore):
+            continue
         if any(x.lower() in low for x in patterns):
             filtered.append(line)
     if filtered:
@@ -326,6 +333,36 @@ def check_vps(issues, infos):
             add_info(infos, "VPS", "pcbot active, reverse SSH и ESP wake порты слушают")
 
 
+def check_lan_servers(issues, infos):
+    config = load_env()
+    raw_hosts = config.get("LAN_SERVER_HOSTS", "")
+    hosts = [x.strip() for x in raw_hosts.replace(";", ",").split(",") if x.strip()]
+    if not hosts:
+        add_info(infos, "LAN servers", "не настроены")
+        return
+    for host in hosts:
+        open_ports = []
+        for port in [22, 25, 53, 80, 443, 587, 993, 995, 5222, 5269, 8000, 8080, 8443]:
+            sock = socket.socket()
+            sock.settimeout(1.0)
+            try:
+                sock.connect((host, port))
+                open_ports.append(port)
+            except OSError:
+                pass
+            finally:
+                sock.close()
+        if not open_ports:
+            add_issue(issues, f"LAN server {host} недоступен", "нет открытых проверяемых TCP-портов")
+            continue
+        expected = {22, 80, 443}
+        missing = sorted(expected - set(open_ports))
+        if missing:
+            add_issue(issues, f"LAN server {host}: не хватает базовых портов", f"open={open_ports}, missing={missing}")
+        else:
+            add_info(infos, f"LAN server {host}", "open ports: " + ", ".join(map(str, open_ports)))
+
+
 def build_report():
     issues = []
     infos = []
@@ -340,6 +377,7 @@ def build_report():
         check_configs,
         check_packages_gpu_temps,
         check_vps,
+        check_lan_servers,
     ]:
         try:
             check(issues, infos)

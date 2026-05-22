@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+import concurrent.futures
+import ipaddress
+import socket
+import subprocess
+import urllib.request
+
+
+NETWORK = "192.168.3.0/24"
+PORTS = [22, 25, 53, 80, 443, 587, 993, 995, 1883, 3000, 5000, 5222, 5269, 8000, 8080, 8443, 10000]
+
+
+def ping(ip):
+    proc = subprocess.run(["ping", "-c1", "-W1", str(ip)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return proc.returncode == 0
+
+
+def tcp(ip, port, timeout=0.5):
+    sock = socket.socket()
+    sock.settimeout(timeout)
+    try:
+        sock.connect((str(ip), port))
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def http_probe(ip, port, tls=False):
+    scheme = "https" if tls else "http"
+    try:
+        req = urllib.request.Request(f"{scheme}://{ip}:{port}/", method="HEAD")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            server = resp.headers.get("Server", "")
+            return f"{resp.status} {server}".strip()
+    except Exception:
+        return ""
+
+
+def mac_table():
+    table = {}
+    try:
+        for line in open("/proc/net/arp", encoding="utf-8").read().splitlines()[1:]:
+            parts = line.split()
+            if len(parts) >= 4:
+                table[parts[0]] = parts[3]
+    except OSError:
+        pass
+    return table
+
+
+def main():
+    ips = list(ipaddress.ip_network(NETWORK).hosts())
+    with concurrent.futures.ThreadPoolExecutor(max_workers=128) as pool:
+        alive = [str(ip) for ip, ok in zip(ips, pool.map(ping, ips)) if ok]
+    macs = mac_table()
+    print(f"LAN inventory for {NETWORK}")
+    print()
+    for ip in alive:
+        open_ports = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as pool:
+            results = list(pool.map(lambda p: (p, tcp(ip, p)), PORTS))
+        for port, ok in results:
+            if ok:
+                open_ports.append(port)
+        hints = []
+        if 80 in open_ports:
+            value = http_probe(ip, 80)
+            if value:
+                hints.append(f"http: {value}")
+        if 443 in open_ports:
+            value = http_probe(ip, 443, tls=True)
+            if value:
+                hints.append(f"https: {value}")
+        marker = ""
+        if any(p in open_ports for p in [22, 80, 443]) and any(p in open_ports for p in [25, 587, 993, 5222, 5269]):
+            marker = " possible-server"
+        print(f"{ip:15} mac={macs.get(ip, '-'):17} ports={','.join(map(str, open_ports)) or '-'}{marker}")
+        for hint in hints:
+            print(f"  {hint}")
+
+
+if __name__ == "__main__":
+    main()
